@@ -23,7 +23,7 @@
     │   ├── config.py                   # 전역 설정 관리 (API 키, 모델 설정, DB 경로 등)
     │   └── pipeline.py                 # RAG 파이프라인 통합 (검색 → 생성 → 응답 전체 흐름)
     ├── data
-    │   ├── crawler.py                  # 데이터 수집 (arXiv, GeekNews 크롤링)
+    │   ├── crawler.py                  # 데이터 수집
     │   └── retriever.py                # 문서 검색 (벡터 DB에서 관련 문서 조회)
     ├── database
     │   ├── chat_history.py             # 채팅 이력 관리 (대화 저장/조회)
@@ -35,7 +35,7 @@
     ├── utils
     │   └── logger.py                   # 로깅 유틸리티 (실행 로그 기록)
     ├── web
-    │   └── app.py                      # Gradio 웹 인터페이스 (사용자 UI)
+    │   └── app.py                      # 웹 인터페이스 (사용자 UI)
     └── main.py                         # 메인 실행 파일 (데이터 수집 → 웹 배포 전체 오케스트레이션)
 ```
 
