@@ -17,26 +17,28 @@
 
 ```bash
 .
-├── README.md                           # 프로젝트 설명 및 사용법 문서
+├── README.md                           # 프로젝트 개요, 설치 방법, 사용 가이드
+├── requirements.txt                    # 패키지 의존성 목록
+├── .env.example                        # API 키 샘플 (실제 .env는 gitignore)
 └── src
-    ├── core
-    │   ├── config.py                   # 전역 설정 관리 (API 키, 모델 설정, DB 경로 등)
-    │   └── pipeline.py                 # RAG 파이프라인 통합 (검색 → 생성 → 응답 전체 흐름)
-    ├── data
-    │   ├── crawler.py                  # 데이터 수집
-    │   └── retriever.py                # 문서 검색 (벡터 DB에서 관련 문서 조회)
+    ├── agent
+    │   ├── evaluator.py                # Supervisor: tool 사용 여부 판단, 응답 검증
+    │   ├── tools.py                    # 주식 정보(yfinance), 웹 검색, 파일 저장, 그래프 생성
+    │   └── workflow.py                 # Agent 실행 흐름 (LangGraph/ReAct 패턴)
+    ├── rag
+    │   ├── retriever.py                # 벡터 DB 검색 (주식 문서 retrieve)
+    │   ├── vector_store.py             # 벡터 DB 초기화 및 문서 임베딩 저장
+    │   └── pipeline.py                 # RAG 전체 파이프라인 (retrieve → generate)
     ├── database
-    │   ├── chat_history.py             # 채팅 이력 관리 (대화 저장/조회)
-    │   └── vector_store.py             # 벡터 데이터베이스 관리 (임베딩 저장/검색)
-    ├── evaluate
-    │   └── evaluator.py                # 응답 품질 평가 (RAG 성능 측정)
+    │   └── chat_history.py             # 대화 기록 저장/조회 (SQLite)
     ├── model
-    │   └── llm.py                      # LLM 모델 관리 (프롬프트 생성 및 응답 생성)
-    ├── utils
-    │   └── logger.py                   # 로깅 유틸리티 (실행 로그 기록)
+    │   └── llm.py                    # LLM 인스턴스 및 프롬프트 템플릿
     ├── web
-    │   └── app.py                      # 웹 인터페이스 (사용자 UI)
-    └── main.py                         # 메인 실행 파일 (데이터 수집 → 웹 배포 전체 오케스트레이션)
+    │   └── app.py                      # Streamlit UI (채팅 인터페이스)
+    ├── utils
+    │   ├── config.py                   # 환경 변수, API 키, 전역 설정
+    │   └── logger.py                   # 로깅 설정
+    └── main.py                         # CLI 실행 진입점
 ```
 
 ## **1. 서비스 구성 요소**  
