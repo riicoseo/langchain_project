@@ -3,13 +3,11 @@
 Financial Tools for Financial Analyst Agent
 
 이 모듈은 financial_analyst 에이전트가 사용하는 금융 분석 도구들을 제공합니다.
-- 주식 검색 (자동완성, 한국어 자동 번역)
-- 주식 기본 정보 조회
-- 주식 비교
-- 과거 가격 데이터 조회
-- 뉴스 검색
-- 재무제표 조회
-- 환율 변환 (USD → KRW)
+- 주식 검색 (영어 및 한국어 지원)
+- 주식 기본 정보 조회 (yfinance 기반)
+- 웹 검색 (Tavily API 사용 + Tavily 결과 빈 값 반환시 웹페이지 직접 로드)
+- 과거 가격 데이터 조회 (yfinance 기반)
+- 애널리스트 추천 정보 조회 (yfinance 기반)
 """
 
 import json
@@ -195,8 +193,8 @@ def web_search(query: str) -> str:
     """
     try:
         # Tavily 클라이언트 초기화
-        client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
-        
+        client = TavilyClient(api_key=Config.TAVILY_API_KEY)
+    
         # 검색 실행
         response = client.search(query, search_depth = "advanced", include_raw_content=True)
 
