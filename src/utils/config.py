@@ -7,12 +7,19 @@ class Config:
     SOLAR_API_KEY = os.getenv("SOLAR_API_KEY")
     
     # Vector DB
-    VECTOR_DB_PATH = "./chroma_db"
-    EMBEDDING_MODEL = "text-embedding-ada-002"
+    PERSIST_DIR = "data/chroma_store"
+    COLLECTION_NAME = "finance_terms"
+    EMBEDDING_MODEL = "BAAI/bge-m3"
+    PDF_PATH_PATTERN = "data/pdf/*.pdf"
     
     # Chunking
-    CHUNK_SIZE = 1000
-    CHUNK_OVERLAP = 200
+    CHUNK_SIZE_S = 300
+    CHUNK_OVERLAP_S = 50
+    CHUNK_SIZE_L = 800
+    CHUNK_OVERLAP_L = 140
     
     # Retrieval
     TOP_K = 5
+    
+
+
