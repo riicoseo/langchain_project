@@ -9,6 +9,9 @@ dependencies = [
     "yfinance",
     "streamlit",
     "python-dotenv",
+    "deep-translator>=1.11.4",
+    "tavily>=1.0.0",
+    "langchain-community>=0.3.31",
 ]
 
 [build-system]
