@@ -13,6 +13,7 @@ class Config:
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     SOLAR_API_KEY = os.getenv("SOLAR_API_KEY")
     TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+    
     # API Key 검증
     @classmethod
     def validate_api_keys(cls):
