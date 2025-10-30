@@ -71,16 +71,55 @@ def load_web_page(url: str) -> str:
 
 @tool
 def search_stocks(query: str, max_results: int = 10) -> str:
-    """회사명, 키워드, 또는 산업으로 주식을 검색합니다.
-    사용자가 티커를 모르거나 특정 분야의 주식을 찾을 때 사용합니다.
-    한국어 입력도 자동으로 영어로 번역되어 검색됩니다.
-    
+    """회사명, 키워드, 산업명으로 주식을 검색하여 티커 심볼을 찾습니다.
+
+    사용자가 티커 심볼을 모르거나, 특정 분야의 주식을 찾을 때 사용합니다.
+    한국어 검색어도 지원하며, 자동으로 영어로 번역하여 검색합니다.
+
+    검색 가능한 항목:
+    - 회사명 (예: "Apple", "Microsoft", "Tesla", "애플", "삼성전자")
+    - 산업명 (예: "semiconductor", "electric vehicle", "반도체")
+    - 키워드 (예: "AI", "cloud computing", "전기차")
+
     Args:
-        query: 검색어 (회사명, 산업, 키워드 등 - 한국어/영어 모두 가능)
-        max_results: 최대 검색 결과 수 (기본값: 10)
-    
+        query: 검색어 (한국어/영어 모두 가능)
+              회사명, 산업명, 또는 관련 키워드를 입력
+        max_results: 반환할 최대 검색 결과 수 (기본값: 10)
+                    너무 많은 결과는 분석을 어렵게 하므로 적절히 조절
+
     Returns:
-        검색된 주식 티커와 회사명 리스트 (포맷팅된 문자열)
+        검색된 주식 티커 목록 (포맷팅된 문자열)
+        - 성공 시: 티커 심볼, 회사명, 거래소 정보를 포함한 목록
+        - 실패 시: 검색 결과가 없다는 메시지 또는 오류 메시지
+
+    Examples:
+        >>> search_stocks("Apple")
+        '''Apple' 검색 결과:
+        ----------------------------------------------------------------------
+        • AAPL - Apple Inc. [NASDAQ]
+        • AAPL.MX - Apple Inc. [MEX]
+
+        💡 상세 정보를 보려면 get_stock_info 도구를 사용하세요.
+        ----------------------------------------------------------------------'''
+
+        >>> search_stocks("애플", max_results=3)
+        '''애플' 검색 결과: (영어: 'Apple')
+        ----------------------------------------------------------------------
+        • AAPL - Apple Inc. [NASDAQ]
+        • AAPL.MX - Apple Inc. [MEX]
+        • AAPL.BA - Apple Inc. [BUE]
+
+        💡 상세 정보를 보려면 get_stock_info 도구를 사용하세요.
+        ----------------------------------------------------------------------'''
+
+        >>> search_stocks("electric vehicle")
+        '''electric vehicle' 검색 결과:
+        ----------------------------------------------------------------------
+        • TSLA - Tesla, Inc. [NASDAQ]
+        • NIO - NIO Inc. [NYSE]
+        • RIVN - Rivian Automotive, Inc. [NASDAQ]
+        ...
+        ----------------------------------------------------------------------'''
     """
     try:
         # JSON 문자열로 전달된 경우 파싱
@@ -142,14 +181,73 @@ def search_stocks(query: str, max_results: int = 10) -> str:
 
 @tool
 def get_stock_info(ticker: str) -> Dict[str, Any]:
-    """주식의 기본 정보를 조회합니다.
-    현재가, 시가총액, PER, 배당수익률, 52주 최고/최저가 등을 제공합니다.
+    """특정 주식의 상세 정보를 조회합니다.
+
+    yfinance API를 사용하여 주식의 현재가, 시가총액, 밸류에이션 지표,
+    52주 최고/최저가, 거래량, 기업 정보 등을 실시간으로 조회합니다.
+
+    이 도구는 단일 주식 분석의 핵심 데이터 소스이며,
+    비교 분석 시에도 각 주식별로 호출하여 데이터를 수집합니다.
 
     Args:
-        ticker: 주식 티커 심볼 (예: "AAPL", "TSLA", "005930.KS")
+        ticker: 주식 티커 심볼
+               - 미국 주식: "AAPL", "MSFT", "GOOGL", "TSLA" 등
+               - 한국 주식: "005930.KS" (삼성전자), "035720.KS" (카카오) 등
+               - 기타: 각 거래소의 티커 규칙을 따름
 
     Returns:
-        주식 정보 (dict)
+        주식 정보를 담은 딕셔너리 (Dict[str, Any])
+        포함 필드:
+        - symbol: 티커 심볼
+        - name: 회사명
+        - current_price: 현재가
+        - previous_close: 전일 종가
+        - open: 시가
+        - day_high: 당일 최고가
+        - day_low: 당일 최저가
+        - market_cap: 시가총액
+        - pe_ratio: PER (Trailing P/E Ratio)
+        - forward_pe: Forward P/E Ratio
+        - dividend_yield: 배당수익률
+        - 52week_high: 52주 최고가
+        - 52week_low: 52주 최저가
+        - volume: 거래량
+        - avg_volume: 평균 거래량
+        - sector: 섹터
+        - industry: 산업
+        - country: 국가
+        - website: 웹사이트 URL
+        - summary: 기업 개요
+
+        오류 발생 시: {"error": "오류 메시지"}
+
+    Examples:
+        >>> get_stock_info("AAPL")
+        {
+            "symbol": "AAPL",
+            "name": "Apple Inc.",
+            "current_price": 178.25,
+            "market_cap": 2800000000000,
+            "pe_ratio": 29.5,
+            "52week_high": 199.62,
+            "52week_low": 164.08,
+            "sector": "Technology",
+            "industry": "Consumer Electronics",
+            ...
+        }
+
+        >>> get_stock_info("TSLA")
+        {
+            "symbol": "TSLA",
+            "name": "Tesla, Inc.",
+            "current_price": 242.84,
+            "market_cap": 770000000000,
+            "pe_ratio": 65.3,
+            ...
+        }
+
+        >>> get_stock_info("INVALID")
+        {"error": "Failed to fetch info for INVALID: ..."}
     """
     try:
         # JSON 문자열로 전달된 경우 파싱
@@ -198,15 +296,61 @@ def get_stock_info(ticker: str) -> Dict[str, Any]:
 
 @tool
 def web_search(query: str) -> str:
-    """
-    주어진 query에 대해 웹 검색을 하고 결과를 반환합니다.
-    주가 변동의 '이유'를 찾거나, yfinance에 없는 정보를 검색하는 등의 용도로 사용합니다.
+    """웹 검색을 수행하여 최신 뉴스, 시장 동향, 기업 정보 등을 조회합니다.
+
+    Tavily API를 사용하여 심층 웹 검색을 수행하고, 검색 결과를 JSON 파일로 저장합니다.
+    yfinance에서 제공하지 않는 최신 뉴스, 시장 분석, 기업 이벤트 등을 찾을 때 유용합니다.
+
+    주요 사용 사례:
+    - 주가 급등/급락의 원인 조사
+    - 최신 기업 뉴스 및 공시 사항 확인
+    - 경쟁사 비교 분석을 위한 업계 동향 파악
+    - 신제품 출시, M&A, 경영진 변경 등 중요 이벤트 확인
+    - 섹터별 시장 트렌드 분석
 
     Args:
-        query (str): 검색어
+        query: 웹 검색어 (영어 권장)
+              구체적이고 명확한 검색어를 사용하면 더 좋은 결과를 얻을 수 있습니다.
+              예: "Apple stock price increase reason", "Tesla Q4 earnings"
 
     Returns:
-        검색 결과 요약 및 저장 경로 (문자열)
+        검색 결과 요약 (포맷팅된 문자열)
+        - 검색된 결과 개수
+        - 상위 5개 결과의 제목, URL, 내용 미리보기
+        - 전체 검색 결과가 저장된 JSON 파일 경로 (data/resources_YYYYMMDD_HHMMSS.json)
+
+        오류 발생 시: 오류 메시지를 포함한 딕셔너리
+
+    Examples:
+        >>> web_search("Apple stock surge January 2025")
+        '''🌐 'Apple stock surge January 2025' 웹 검색 완료
+
+        📊 검색 결과: 5개
+        💾 저장 위치: data/resources_20250131_143022.json
+
+        📝 주요 결과:
+
+        [1] Apple Stock Surges on Strong iPhone Sales
+            URL: https://example.com/article1
+            내용: Apple Inc. shares jumped 5% today following better-than-expected iPhone 15 sales figures...
+
+        [2] Why AAPL is Up Today
+            URL: https://example.com/article2
+            내용: Analysts cite robust services revenue and AI integration as key drivers for Apple's stock rally...
+        ...'''
+
+        >>> web_search("semiconductor industry outlook 2025")
+        '''🌐 'semiconductor industry outlook 2025' 웹 검색 완료
+
+        📊 검색 결과: 7개
+        💾 저장 위치: data/resources_20250131_143045.json
+
+        📝 주요 결과:
+
+        [1] Chip Industry Faces Supply Chain Challenges in 2025
+            URL: https://example.com/chips
+            내용: The global semiconductor market is expected to grow...
+        ...'''
     """
     try:
         # JSON 문자열로 전달된 경우 파싱
@@ -277,19 +421,86 @@ def get_historical_prices(
     period: str = "1mo",
     interval: str = "1d"
 ) -> str:
-    """과거 주가 데이터를 조회합니다.
-    차트 생성이나 추세 분석에 필요한 OHLCV 데이터를 제공합니다.
+    """주식의 과거 가격 데이터(OHLCV)를 조회합니다.
+
+    yfinance를 사용하여 특정 기간의 시가, 고가, 저가, 종가, 거래량(OHLCV) 데이터를 조회합니다.
+    가격 추세 분석, 기술적 분석, 차트 생성 등에 필요한 시계열 데이터를 제공합니다.
+
+    주요 사용 사례:
+    - 주가 추세 분석 (상승/하락 패턴 파악)
+    - 변동성 분석 (최근 몇 개월간의 가격 변동 폭 확인)
+    - 기술적 분석 기초 데이터 (이동평균, RSI 등 계산용)
+    - 시간대별 비교 (장중 가격 변동 vs 일간 변동)
 
     Args:
-        ticker: 주식 티커 심볼
-        period: 기간 ("1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max")
-        interval: 간격 ("1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h", "1d", "5d", "1wk", "1mo", "3mo")
-    
+        ticker: 주식 티커 심볼 (예: "AAPL", "TSLA", "MSFT")
+        period: 조회 기간 (기본값: "1mo")
+               선택 가능:
+               - "1d": 1일
+               - "5d": 5일
+               - "1mo": 1개월 (기본값)
+               - "3mo": 3개월
+               - "6mo": 6개월
+               - "1y": 1년
+               - "2y": 2년
+               - "5y": 5년
+               - "10y": 10년
+               - "ytd": 올해 초부터 현재까지
+               - "max": 최대 가능 기간
+        interval: 데이터 간격 (기본값: "1d")
+                 선택 가능:
+                 - 분 단위: "1m", "2m", "5m", "15m", "30m", "60m", "90m"
+                 - 시간 단위: "1h"
+                 - 일 단위: "1d" (기본값), "5d"
+                 - 주/월 단위: "1wk", "1mo", "3mo"
+
     Returns:
         과거 가격 데이터 (포맷팅된 문자열)
-    
-    Example:
+        - 최근 10개 데이터 포인트를 테이블 형식으로 표시
+        - 각 행: 날짜/시간, Open, High, Low, Close, Volume
+        - 전체 데이터 포인트 개수 정보
+
+        오류 발생 시: 오류 메시지
+
+    Examples:
         >>> get_historical_prices("AAPL", period="1mo", interval="1d")
+        '''
+        AAPL 과거 가격 (1mo, 1d 간격):
+        ================================================================================
+                            Open        High         Low       Close    Volume
+        Date
+        2025-01-01  178.09  179.23  177.54  178.87  45234567
+        2025-01-02  178.90  180.12  178.45  179.65  48765432
+        ...
+        2025-01-30  182.34  183.21  181.90  182.75  52134678
+
+        총 22개 데이터 포인트
+        '''
+
+        >>> get_historical_prices("TSLA", period="5d", interval="1h")
+        '''
+        TSLA 과거 가격 (5d, 1h 간격):
+        ================================================================================
+                            Open        High         Low       Close    Volume
+        Datetime
+        2025-01-27 14:00  242.10  242.85  241.50  242.34  1234567
+        2025-01-27 15:00  242.35  243.20  242.00  242.80  987654
+        ...
+
+        총 40개 데이터 포인트
+        '''
+
+        >>> get_historical_prices("GOOGL", period="1y", interval="1wk")
+        '''
+        GOOGL 과거 가격 (1y, 1wk 간격):
+        ================================================================================
+                            Open        High         Low       Close      Volume
+        Date
+        2024-01-29  143.20  145.50  142.80  144.90  112345678
+        ...
+
+        총 52개 데이터 포인트
+        '''
     """
     try:
         # JSON 문자열로 전달된 경우 파싱
@@ -326,17 +537,84 @@ def get_historical_prices(
 
 @tool
 def get_analyst_recommendations(ticker: str) -> str:
-    """애널리스트 추천 정보를 종합 조회합니다.
-    추천 등급, 목표 주가, 최근 등급 변경 이력을 모두 제공합니다.
-    
+    """전문 애널리스트들의 주식 추천 정보를 종합적으로 조회합니다.
+
+    yfinance를 통해 월가 애널리스트들의 추천 등급, 목표 주가,
+    최근 등급 변경 이력 등을 종합적으로 제공합니다.
+
+    투자 의사결정에 중요한 전문가 의견을 파악하는 데 유용하며,
+    특히 목표가 대비 현재가의 상승 여력을 계산하여 제공합니다.
+
+    제공 정보:
+    - 현재 추천 등급 (Strong Buy, Buy, Hold, Sell, Strong Sell)
+    - 커버하는 애널리스트 수
+    - 평균 목표 주가 및 목표가 범위 (최저~최고)
+    - 현재가 대비 상승 여력 (%)
+    - 최근 10개 추천 이력
+    - 최근 10개 등급 변경 이력 (업그레이드/다운그레이드)
+
     Args:
-        ticker: 주식 티커 심볼
-    
+        ticker: 주식 티커 심볼 (예: "AAPL", "TSLA", "MSFT")
+
     Returns:
         애널리스트 추천 종합 정보 (포맷팅된 문자열)
-    
-    Example:
+        - 현재 추천 요약 (등급, 애널리스트 수, 목표가, 상승여력)
+        - 최근 추천 이력 테이블 (날짜, 기관, 등급)
+        - 최근 등급 변경 테이블 (날짜, 기관, 이전 등급, 새 등급)
+
+        오류 발생 시: 오류 메시지
+
+    Examples:
         >>> get_analyst_recommendations("AAPL")
+        '''
+        AAPL 애널리스트 추천:
+        ================================================================================
+
+        현재 추천 요약:
+          • 추천 등급: BUY
+          • 애널리스트 수: 45명
+          • 평균 목표가: $195.50
+          • 목표가 범위: $175.00 ~ $220.00
+          • 현재가: $178.25
+          • 상승여력: +9.68%
+
+        최근 애널리스트 추천 (최근 10개):
+                    Firm              To Grade     Action
+        Date
+        2025-01-28  Morgan Stanley    Overweight   main
+        2025-01-25  JP Morgan         Buy          up
+        2025-01-22  Goldman Sachs     Buy          main
+        ...
+
+        최근 등급 변경 (최근 10개):
+                    Firm              From Grade   To Grade
+        Date
+        2025-01-25  JP Morgan         Hold         Buy
+        2025-01-15  Wells Fargo       Buy          Overweight
+        ...
+
+        총 120개 등급 변경 기록
+        '''
+
+        >>> get_analyst_recommendations("TSLA")
+        '''
+        TSLA 애널리스트 추천:
+        ================================================================================
+
+        현재 추천 요약:
+          • 추천 등급: HOLD
+          • 애널리스트 수: 38명
+          • 평균 목표가: $250.00
+          • 목표가 범위: $180.00 ~ $350.00
+          • 현재가: $242.84
+          • 상승여력: +2.95%
+        ...
+        '''
+
+        >>> get_analyst_recommendations("SMALLCAP")
+        '''
+        [NOTE] 최근 등급 변경 이력이 없습니다.
+        '''
     """
     try:
         # JSON 문자열로 전달된 경우 파싱
