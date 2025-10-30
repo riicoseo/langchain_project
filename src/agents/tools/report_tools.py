@@ -43,41 +43,243 @@ plt.rcParams['axes.unicode_minus'] = False
 
 @tool
 def draw_stock_chart(output_path: str = "charts/stock_chart.png") -> str:
-    """
-    주식 분석 데이터를 사용하여 가격 차트를 그립니다.
-    데이터는 Report Generator가 이미 준비해두었으므로, output_path만 지정하면 됩니다.
+    """주식 분석 데이터를 기반으로 가격 차트를 생성하고 저장합니다.
 
-    ====================================================
-    도구 호출 시 전달되는 인자와 반환값에 대한 설명 명확하게
+    이 도구는 financial_analyst가 분석한 주식 데이터를 시각화합니다.
+    단일 주식 분석의 경우 52주 고가/저가/현재가 막대 그래프와 주요 지표를 표시하고,
+    비교 분석의 경우 여러 주식의 현재가, 52주 범위 위치, P/E Ratio, 시가총액을 비교합니다.
+
+    ⚠️ 중요: Report Generator가 analysis_data를 미리 설정해야 합니다.
+    이 도구는 글로벌 변수에서 분석 데이터를 자동으로 가져옵니다.
 
     Args:
+        output_path: 차트 이미지를 저장할 경로 (기본값: "charts/stock_chart.png")
+                    지원 형식: .png, .jpg, .jpeg, .pdf, .svg, .webp
 
     Returns:
+        차트 저장 결과 메시지 (성공 시 "✓ 차트가 {경로}에 저장되었습니다.", 실패 시 오류 메시지)
 
-    ====================================================
-    Args:
-        output_path: 저장 경로 (기본값: "charts/stock_chart.png")
+    Examples:
+        >>> draw_stock_chart("charts/aapl_analysis.png")
+        "✓ 차트가 charts/aapl_analysis.png에 저장되었습니다."
 
-    Returns:
-        차트 저장 결과 메시지
+        >>> draw_stock_chart("charts/comparison_chart.png")
+        "✓ 비교 차트가 charts/comparison_chart.png에 저장되었습니다."
     """
+    def _draw_single_stock_chart(data: Dict[str, Any], save_path: str) -> str:
+        """단일 주식 메트릭 시각화 (52주 고가/저가, 현재가를 막대 그래프로 표시)"""
+        try:
+            ticker = data.get('ticker', 'N/A')
+            company_name = data.get('company_name', 'Unknown')
+            current_price = data.get('current_price', 0)
+            metrics = data.get('metrics', {})
+
+            high_52w = metrics.get('52week_high', 0)
+            low_52w = metrics.get('52week_low', 0)
+            pe_ratio = metrics.get('pe_ratio', 0)
+            market_cap = metrics.get('market_cap', 0)
+
+            # 52주 데이터 유효성 검사
+            if high_52w == 0 or low_52w == 0:
+                logger.warning(f"{ticker}: 52주 고가/저가 데이터가 없습니다.")
+                if current_price > 0:
+                    high_52w = current_price if high_52w == 0 else high_52w
+                    low_52w = current_price if low_52w == 0 else low_52w
+                else:
+                    return f"❌ {ticker}: 가격 데이터가 충분하지 않습니다."
+
+            # 차트 생성
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+
+            # 1. 가격 범위 차트
+            categories = ['52W Low', 'Current', '52W High']
+            prices = [low_52w, current_price, high_52w]
+            colors = ['#d62728', '#2ca02c', '#1f77b4']
+
+            bars = ax1.bar(categories, prices, color=colors, alpha=0.7, edgecolor='black', linewidth=1.5)
+            ax1.set_title(f'{company_name} ({ticker}) - Price Range', fontsize=14, fontweight='bold')
+            ax1.set_ylabel('Price ($)', fontsize=12)
+            ax1.grid(axis='y', alpha=0.3)
+
+            # 가격 레이블
+            for bar, price in zip(bars, prices):
+                height = bar.get_height()
+                ax1.text(bar.get_x() + bar.get_width()/2., height,
+                        f'${price:.2f}',
+                        ha='center', va='bottom', fontweight='bold', fontsize=10)
+
+            # 현재가 위치 표시 (퍼센트)
+            if high_52w > low_52w:
+                position_pct = (current_price - low_52w) / (high_52w - low_52w) * 100
+                ax1.text(0.5, 0.95, f'Position: {position_pct:.1f}% of 52W range',
+                        transform=ax1.transAxes, ha='center', va='top',
+                        fontsize=10, bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.8))
+
+            # 2. 주요 지표 표시
+            ax2.axis('off')
+
+            # Market Cap 포맷팅
+            if market_cap >= 1e12:
+                market_cap_str = f"${market_cap/1e12:.2f}T"
+            elif market_cap >= 1e9:
+                market_cap_str = f"${market_cap/1e9:.2f}B"
+            elif market_cap >= 1e6:
+                market_cap_str = f"${market_cap/1e6:.2f}M"
+            else:
+                market_cap_str = f"${market_cap:.0f}"
+
+            # P/E Ratio 포맷팅
+            pe_ratio_str = f"{pe_ratio:.2f}" if pe_ratio > 0 else "N/A"
+
+            metrics_text = f"""[Key Metrics]
+
+Ticker: {ticker}
+Company: {company_name}
+
+Current Price: ${current_price:.2f}
+52 Week High: ${high_52w:.2f}
+52 Week Low: ${low_52w:.2f}
+
+P/E Ratio: {pe_ratio_str}
+Market Cap: {market_cap_str}
+
+Sector: {metrics.get('sector', 'N/A')}
+Industry: {metrics.get('industry', 'N/A')}"""
+
+            ax2.text(0.1, 0.5, metrics_text, fontsize=11, verticalalignment='center',
+                    family='monospace', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.3))
+
+            plt.tight_layout()
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            plt.close()
+
+            return f"✓ 차트가 {save_path}에 저장되었습니다."
+
+        except Exception as e:
+            logger.error(f"단일 주식 차트 생성 실패: {str(e)}")
+            return f"차트 생성 중 오류: {str(e)}"
+
+    def _draw_comparison_chart(data: Dict[str, Any], save_path: str) -> str:
+        """비교 분석 차트 그리기 (여러 주식의 현재가, 52주 범위, 주요 지표 비교)"""
+        try:
+            stocks = data.get('stocks', [])
+            if not stocks:
+                return "비교할 주식 데이터가 없습니다."
+
+            # 3개의 서브플롯: 현재가, 52주 범위, 주요 지표
+            fig = plt.figure(figsize=(18, 5))
+            gs = fig.add_gridspec(1, 3, hspace=0.3, wspace=0.3)
+            ax1 = fig.add_subplot(gs[0, 0])
+            ax2 = fig.add_subplot(gs[0, 1])
+            ax3 = fig.add_subplot(gs[0, 2])
+
+            tickers = [s['ticker'] for s in stocks]
+            colors_list = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+
+            # 1. 현재가 비교
+            prices = [s.get('current_price', 0) for s in stocks]
+
+            bars = ax1.bar(tickers, prices,
+                          color=[colors_list[i % len(colors_list)] for i in range(len(tickers))],
+                          alpha=0.7, edgecolor='black', linewidth=1.5)
+            ax1.set_title('Current Price Comparison', fontsize=14, fontweight='bold')
+            ax1.set_xlabel('Stock', fontsize=12)
+            ax1.set_ylabel('Price ($)', fontsize=12)
+            ax1.grid(axis='y', alpha=0.3)
+
+            # 가격 레이블
+            for bar, price in zip(bars, prices):
+                height = bar.get_height()
+                ax1.text(bar.get_x() + bar.get_width()/2., height,
+                        f'${price:.2f}',
+                        ha='center', va='bottom', fontweight='bold', fontsize=9)
+
+            # 2. 52주 범위 비교 (정규화된 차트)
+            for idx, stock in enumerate(stocks):
+                ticker = stock['ticker']
+                current_price = stock.get('current_price', 0)
+                metrics = stock.get('metrics', {})
+                high_52w = metrics.get('52week_high', 0)
+                low_52w = metrics.get('52week_low', 0)
+
+                # 데이터 유효성 검사
+                if high_52w > 0 and low_52w > 0 and high_52w > low_52w and current_price > 0:
+                    position = (current_price - low_52w) / (high_52w - low_52w) * 100
+
+                    # 정규화된 막대 (0-100%)
+                    ax2.barh(ticker, position,
+                            color=colors_list[idx % len(colors_list)],
+                            alpha=0.7, height=0.6)
+
+                    # 위치 표시
+                    ax2.text(position, idx, f'{position:.1f}%',
+                            ha='left', va='center', fontsize=9, fontweight='bold')
+
+            ax2.set_title('Position in 52-Week Range', fontsize=14, fontweight='bold')
+            ax2.set_xlabel('Position (%)', fontsize=12)
+            ax2.set_xlim(0, 100)
+            ax2.grid(axis='x', alpha=0.3)
+            ax2.axvline(x=50, color='red', linestyle='--', alpha=0.5, linewidth=1)
+
+            # 3. 주요 지표 비교 (P/E Ratio & Market Cap)
+            pe_ratios = [s.get('metrics', {}).get('pe_ratio', 0) for s in stocks]
+            market_caps = [s.get('metrics', {}).get('market_cap', 0) / 1e12 for s in stocks]  # 조 단위
+
+            x = np.arange(len(tickers))
+            width = 0.35
+
+            ax3_twin = ax3.twinx()
+
+            bars1 = ax3.bar(x - width/2, pe_ratios, width, label='P/E Ratio',
+                           color='#1f77b4', alpha=0.7, edgecolor='black', linewidth=1.5)
+            bars2 = ax3_twin.bar(x + width/2, market_caps, width, label='Market Cap ($T)',
+                                color='#ff7f0e', alpha=0.7, edgecolor='black', linewidth=1.5)
+
+            # 값 레이블
+            for bar, pe in zip(bars1, pe_ratios):
+                height = bar.get_height()
+                ax3.text(bar.get_x() + bar.get_width()/2., height,
+                        f'{pe:.1f}',
+                        ha='center', va='bottom', fontsize=8)
+
+            for bar, cap in zip(bars2, market_caps):
+                height = bar.get_height()
+                ax3_twin.text(bar.get_x() + bar.get_width()/2., height,
+                             f'{cap:.2f}T',
+                             ha='center', va='bottom', fontsize=8)
+
+            ax3.set_title('Key Metrics Comparison', fontsize=14, fontweight='bold')
+            ax3.set_xlabel('Stock', fontsize=12)
+            ax3.set_ylabel('P/E Ratio', fontsize=12, color='#1f77b4')
+            ax3_twin.set_ylabel('Market Cap ($T)', fontsize=12, color='#ff7f0e')
+            ax3.set_xticks(x)
+            ax3.set_xticklabels(tickers)
+            ax3.tick_params(axis='y', labelcolor='#1f77b4')
+            ax3_twin.tick_params(axis='y', labelcolor='#ff7f0e')
+            ax3.legend(loc='upper left', fontsize=9)
+            ax3_twin.legend(loc='upper right', fontsize=9)
+            ax3.grid(True, alpha=0.3, axis='y')
+
+            plt.tight_layout()
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            plt.close()
+
+            return f"✓ 비교 차트가 {save_path}에 저장되었습니다."
+
+        except Exception as e:
+            logger.error(f"비교 차트 생성 실패: {str(e)}")
+            return f"차트 생성 중 오류: {str(e)}"
+
     try:
         logger.info(f"주식 차트 생성 시작 - 원본 output_path: {repr(output_path)}")
 
         # Clean output_path - remove any trailing artifacts
-        # LLM sometimes adds extra text: path.png"}\n\n[STOP]
         import re
-
-        # Strategy: extract clean path with extension
-        # Look for: something.extension (before any quotes, braces, or control chars)
         match = re.search(r'([a-zA-Z0-9_/.-]+\.(?:png|jpg|jpeg|pdf|svg|webp))', output_path, re.IGNORECASE)
         if match:
             output_path = match.group(1)
         else:
-            # Fallback: remove everything after first problematic character
             output_path = re.split(r'["\}\]\n\r]', output_path)[0].strip()
-
-            # Ensure it has a valid extension
             if not output_path.endswith(('.png', '.jpg', '.jpeg', '.pdf', '.svg', '.webp')):
                 output_path += '.png'
 
@@ -93,256 +295,51 @@ def draw_stock_chart(output_path: str = "charts/stock_chart.png") -> str:
         # JSON 파싱
         data = json.loads(financial_data_json)
         analysis_type = data.get('analysis_type', 'single')
-        
+
         # 디렉토리 생성
         os.makedirs(os.path.dirname(output_path) if os.path.dirname(output_path) else ".", exist_ok=True)
-        
+
         if analysis_type == 'single':
             result = _draw_single_stock_chart(data, output_path)
         elif analysis_type == 'comparison':
             result = _draw_comparison_chart(data, output_path)
         else:
             return "알 수 없는 분석 유형입니다."
-        
+
         logger.info(f"주식 차트 생성 완료 - 저장: {output_path}")
         return result
-    
+
     except Exception as e:
         logger.error(f"주식 차트 생성 실패: {str(e)}")
         return f"차트 생성 중 오류 발생: {str(e)}"
 
 
-def _draw_single_stock_chart(data: Dict[str, Any], output_path: str) -> str:
-    """
-    단일 주식 메트릭 시각화 (전달받은 데이터만 사용)
-    52주 고가/저가, 현재가를 막대 그래프로 표시
-    """
-    try:
-        ticker = data.get('ticker', 'N/A')
-        company_name = data.get('company_name', 'Unknown')
-        current_price = data.get('current_price', 0)
-        metrics = data.get('metrics', {})
-        
-        high_52w = metrics.get('52week_high', 0)
-        low_52w = metrics.get('52week_low', 0)
-        pe_ratio = metrics.get('pe_ratio', 0)
-        market_cap = metrics.get('market_cap', 0)
-        
-        # 52주 데이터 유효성 검사
-        if high_52w == 0 or low_52w == 0:
-            logger.warning(f"{ticker}: 52주 고가/저가 데이터가 없습니다.")
-            # 현재가만 있는 경우 추정치 사용
-            if current_price > 0:
-                high_52w = current_price if high_52w == 0 else high_52w
-                low_52w = current_price if low_52w == 0 else low_52w
-            else:
-                return f"❌ {ticker}: 가격 데이터가 충분하지 않습니다."
-        
-        # 차트 생성
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
-        
-        # 1. 가격 범위 차트
-        categories = ['52W Low', 'Current', '52W High']
-        prices = [low_52w, current_price, high_52w]
-        colors = ['#d62728', '#2ca02c', '#1f77b4']
-        
-        bars = ax1.bar(categories, prices, color=colors, alpha=0.7, edgecolor='black', linewidth=1.5)
-        ax1.set_title(f'{company_name} ({ticker}) - Price Range', fontsize=14, fontweight='bold')
-        ax1.set_ylabel('Price ($)', fontsize=12)
-        ax1.grid(axis='y', alpha=0.3)
-        
-        # 가격 레이블
-        for bar, price in zip(bars, prices):
-            height = bar.get_height()
-            ax1.text(bar.get_x() + bar.get_width()/2., height,
-                    f'${price:.2f}',
-                    ha='center', va='bottom', fontweight='bold', fontsize=10)
-        
-        # 현재가 위치 표시 (퍼센트)
-        if high_52w > low_52w:
-            position_pct = (current_price - low_52w) / (high_52w - low_52w) * 100
-            ax1.text(0.5, 0.95, f'Position: {position_pct:.1f}% of 52W range',
-                    transform=ax1.transAxes, ha='center', va='top',
-                    fontsize=10, bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.8))
-        
-        # 2. 주요 지표 표시
-        ax2.axis('off')
-        
-        # Market Cap 포맷팅 (조/억 단위)
-        if market_cap >= 1e12:
-            market_cap_str = f"${market_cap/1e12:.2f}T"
-        elif market_cap >= 1e9:
-            market_cap_str = f"${market_cap/1e9:.2f}B"
-        elif market_cap >= 1e6:
-            market_cap_str = f"${market_cap/1e6:.2f}M"
-        else:
-            market_cap_str = f"${market_cap:.0f}"
-        
-        # P/E Ratio 포맷팅 (여기가 핵심!)
-        if pe_ratio > 0:
-            pe_ratio_str = f"{pe_ratio:.2f}"
-        else:
-            pe_ratio_str = "N/A"
-        
-        metrics_text = f"""[Key Metrics]
-
-Ticker: {ticker}
-Company: {company_name}
-
-Current Price: ${current_price:.2f}
-52 Week High: ${high_52w:.2f}
-52 Week Low: ${low_52w:.2f}
-
-P/E Ratio: {pe_ratio_str}
-Market Cap: {market_cap_str}
-
-Sector: {metrics.get('sector', 'N/A')}
-Industry: {metrics.get('industry', 'N/A')}"""
-        
-        ax2.text(0.1, 0.5, metrics_text, fontsize=11, verticalalignment='center',
-                family='monospace', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.3))
-        
-        plt.tight_layout()
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        plt.close()
-        
-        return f"✓ 차트가 {output_path}에 저장되었습니다."
-    
-    except Exception as e:
-        logger.error(f"단일 주식 차트 생성 실패: {str(e)}")
-        import traceback
-        logger.debug(f"상세 에러:\n{traceback.format_exc()}")
-        return f"차트 생성 중 오류: {str(e)}"
-
-
-def _draw_comparison_chart(data: Dict[str, Any], output_path: str) -> str:
-    """
-    비교 분석 차트 그리기 (전달받은 데이터만 사용)
-    """
-    try:
-        stocks = data.get('stocks', [])
-        if not stocks:
-            return "비교할 주식 데이터가 없습니다."
-        
-        # 3개의 서브플롯으로 확장: 현재가, 52주 범위, 주요 지표
-        fig = plt.figure(figsize=(18, 5))
-        gs = fig.add_gridspec(1, 3, hspace=0.3, wspace=0.3)
-        ax1 = fig.add_subplot(gs[0, 0])
-        ax2 = fig.add_subplot(gs[0, 1])
-        ax3 = fig.add_subplot(gs[0, 2])
-        
-        tickers = [s['ticker'] for s in stocks]
-        colors_list = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
-        
-        # 1. 현재가 비교
-        prices = [s.get('current_price', 0) for s in stocks]
-        
-        bars = ax1.bar(tickers, prices, 
-                      color=[colors_list[i % len(colors_list)] for i in range(len(tickers))], 
-                      alpha=0.7, edgecolor='black', linewidth=1.5)
-        ax1.set_title('Current Price Comparison', fontsize=14, fontweight='bold')
-        ax1.set_xlabel('Stock', fontsize=12)
-        ax1.set_ylabel('Price ($)', fontsize=12)
-        ax1.grid(axis='y', alpha=0.3)
-        
-        # 가격 레이블
-        for bar, price in zip(bars, prices):
-            height = bar.get_height()
-            ax1.text(bar.get_x() + bar.get_width()/2., height,
-                    f'${price:.2f}',
-                    ha='center', va='bottom', fontweight='bold', fontsize=9)
-        
-        # 2. 52주 범위 비교 (정규화된 차트)
-        for idx, stock in enumerate(stocks):
-            ticker = stock['ticker']
-            current_price = stock.get('current_price', 0)
-            metrics = stock.get('metrics', {})
-            high_52w = metrics.get('52week_high', 0)
-            low_52w = metrics.get('52week_low', 0)
-            
-            # 데이터 유효성 검사
-            if high_52w > 0 and low_52w > 0 and high_52w > low_52w and current_price > 0:
-                position = (current_price - low_52w) / (high_52w - low_52w) * 100
-                
-                # 정규화된 막대 (0-100%)
-                ax2.barh(ticker, position, 
-                        color=colors_list[idx % len(colors_list)], 
-                        alpha=0.7, height=0.6)
-                
-                # 위치 표시
-                ax2.text(position, idx, f'{position:.1f}%', 
-                        ha='left', va='center', fontsize=9, fontweight='bold')
-        
-        ax2.set_title('Position in 52-Week Range', fontsize=14, fontweight='bold')
-        ax2.set_xlabel('Position (%)', fontsize=12)
-        ax2.set_xlim(0, 100)
-        ax2.grid(axis='x', alpha=0.3)
-        ax2.axvline(x=50, color='red', linestyle='--', alpha=0.5, linewidth=1)
-        
-        # 3. 주요 지표 비교 (P/E Ratio & Market Cap)
-        pe_ratios = [s.get('metrics', {}).get('pe_ratio', 0) for s in stocks]
-        market_caps = [s.get('metrics', {}).get('market_cap', 0) / 1e12 for s in stocks]  # 조 단위
-        
-        x = np.arange(len(tickers))
-        width = 0.35
-        
-        ax3_twin = ax3.twinx()
-        
-        bars1 = ax3.bar(x - width/2, pe_ratios, width, label='P/E Ratio', 
-                       color='#1f77b4', alpha=0.7, edgecolor='black', linewidth=1.5)
-        bars2 = ax3_twin.bar(x + width/2, market_caps, width, label='Market Cap ($T)', 
-                            color='#ff7f0e', alpha=0.7, edgecolor='black', linewidth=1.5)
-        
-        # 값 레이블
-        for bar, pe in zip(bars1, pe_ratios):
-            height = bar.get_height()
-            ax3.text(bar.get_x() + bar.get_width()/2., height,
-                    f'{pe:.1f}',
-                    ha='center', va='bottom', fontsize=8)
-        
-        for bar, cap in zip(bars2, market_caps):
-            height = bar.get_height()
-            ax3_twin.text(bar.get_x() + bar.get_width()/2., height,
-                         f'{cap:.2f}T',
-                         ha='center', va='bottom', fontsize=8)
-        
-        ax3.set_title('Key Metrics Comparison', fontsize=14, fontweight='bold')
-        ax3.set_xlabel('Stock', fontsize=12)
-        ax3.set_ylabel('P/E Ratio', fontsize=12, color='#1f77b4')
-        ax3_twin.set_ylabel('Market Cap ($T)', fontsize=12, color='#ff7f0e')
-        ax3.set_xticks(x)
-        ax3.set_xticklabels(tickers)
-        ax3.tick_params(axis='y', labelcolor='#1f77b4')
-        ax3_twin.tick_params(axis='y', labelcolor='#ff7f0e')
-        ax3.legend(loc='upper left', fontsize=9)
-        ax3_twin.legend(loc='upper right', fontsize=9)
-        ax3.grid(True, alpha=0.3, axis='y')
-        
-        plt.tight_layout()
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
-        plt.close()
-        
-        return f"✓ 비교 차트가 {output_path}에 저장되었습니다."
-    
-    except Exception as e:
-        logger.error(f"비교 차트 생성 실패: {str(e)}")
-        import traceback
-        logger.debug(f"상세 에러:\n{traceback.format_exc()}")
-        return f"차트 생성 중 오류: {str(e)}"
-
-
 @tool
 def draw_valuation_radar(output_path: str = "charts/valuation_radar.png") -> str:
-    """
-    밸류에이션 레이더 차트를 그립니다.
-    주식의 성장성, 가치, 모멘텀, 품질, 시장심리를 시각화합니다.
-    데이터는 Report Generator가 이미 준비해두었으므로, output_path만 지정하면 됩니다.
+    """주식의 밸류에이션 지표를 레이더 차트로 시각화합니다.
+
+    이 도구는 주식의 5가지 핵심 지표(성장성, 가치, 모멘텀, 품질, 시장심리)를
+    레이더 차트(거미줄 차트)로 시각화하여 종합적인 투자 매력도를 한눈에 파악할 수 있게 합니다.
+
+    단일 주식 분석 시에는 업계 기준 대비 절대적 평가를 하고,
+    비교 분석 시에는 여러 주식의 상대적 강점을 비교합니다.
+
+    ⚠️ 중요: Report Generator가 analysis_data를 미리 설정해야 합니다.
+    이 도구는 글로벌 변수에서 분석 데이터를 자동으로 가져옵니다.
 
     Args:
-        output_path: 저장 경로 (기본값: "charts/valuation_radar.png")
+        output_path: 레이더 차트 이미지를 저장할 경로 (기본값: "charts/valuation_radar.png")
+                    지원 형식: .png, .jpg, .jpeg, .pdf, .svg, .webp
 
     Returns:
-        차트 저장 결과 메시지
+        차트 저장 결과 메시지 (성공 시 "✓ 레이더 차트가 {경로}에 저장되었습니다.", 실패 시 오류 메시지)
+
+    Examples:
+        >>> draw_valuation_radar("charts/aapl_valuation.png")
+        "✓ 레이더 차트가 charts/aapl_valuation.png에 저장되었습니다."
+
+        >>> draw_valuation_radar("charts/comparison_radar.png")
+        "✓ 레이더 차트가 charts/comparison_radar.png에 저장되었습니다."
     """
     try:
         logger.info("밸류에이션 레이더 차트 생성 시작")
@@ -703,22 +700,44 @@ def _calculate_comparative_scores(stocks: list) -> tuple:
 
 @tool
 def save_report_to_file(
-    report_text: str, 
+    report_text: str,
     format: str = "md",
     output_path: Optional[str] = None,
     chart_paths: Optional[str] = None
 ) -> str:
-    """
-    보고서를 파일로 저장합니다.
-    
+    """생성된 보고서를 지정한 형식의 파일로 저장합니다.
+
+    이 도구는 텍스트 보고서를 파일로 저장하며, TXT, Markdown, PDF 형식을 지원합니다.
+    PDF 형식의 경우 차트 이미지를 함께 포함할 수 있어 완전한 보고서를 만들 수 있습니다.
+
+    지원 형식:
+    - txt: 일반 텍스트 파일 (간단한 저장용)
+    - md: Markdown 파일 (구조화된 문서, 기본값)
+    - pdf: PDF 파일 (차트 포함 가능, 프레젠테이션용)
+
     Args:
-        report_text: 보고서 텍스트
-        format: 파일 형식 ("txt", "md", "pdf")
-        output_path: 저장 경로 (없으면 자동 생성)
-        chart_paths: 차트 이미지 경로들 (쉼표로 구분된 문자열, PDF에만 포함)
-    
+        report_text: 저장할 보고서의 텍스트 내용 (Markdown 형식 권장)
+        format: 파일 형식 (기본값: "md")
+               선택 가능: "txt", "md", "pdf"
+        output_path: 파일을 저장할 경로 (Optional)
+                    None인 경우 자동으로 "reports/report_YYYYMMDD_HHMMSS.{format}" 형식으로 생성
+        chart_paths: 포함할 차트 이미지 경로들 (Optional, PDF 형식에만 사용)
+                    여러 개인 경우 쉼표로 구분 (예: "charts/chart1.png,charts/chart2.png")
+
     Returns:
         저장 결과 메시지
+        - 성공 시: "✓ 보고서가 {경로}에 저장되었습니다." 또는 "✓ PDF 보고서가 {경로}에 저장되었습니다."
+        - 실패 시: "❌ " 로 시작하는 오류 메시지
+
+    Examples:
+        >>> save_report_to_file("# Stock Analysis\\n\\nApple Inc...", format="md")
+        "✓ 보고서가 reports/report_20250131_143022.md에 저장되었습니다."
+
+        >>> save_report_to_file("Report content", format="pdf", output_path="reports/aapl.pdf", chart_paths="charts/aapl.png")
+        "✓ PDF 보고서가 reports/aapl.pdf에 저장되었습니다."
+
+        >>> save_report_to_file("Simple text", format="txt", output_path="reports/summary.txt")
+        "✓ 보고서가 reports/summary.txt에 저장되었습니다."
     """
     try:
         # JSON 문자열로 전달된 경우 파싱 (LangChain tool input 처리)
