@@ -25,20 +25,28 @@ class Config:
         if not cls.TAVILY_API_KEY:
             raise ValueError("TAVILY_API_KEY가 설정되지 않았습니다.")
             
-    # Paths
     BASE_DIR = Path(__file__).resolve().parent.parent.parent
-    VECTOR_DB_PATH = BASE_DIR / "chroma_db"
+
+    # Logs
     LOGS_DIR = BASE_DIR / "logs"
     
-    # Embedding
-    EMBEDDING_MODEL = "text-embedding-ada-002"
+    # Vector DB
+    PERSIST_DIR = "data/chroma_store"
+    COLLECTION_NAME = "finance_terms"
+    EMBEDDING_MODEL = "BAAI/bge-m3"
+    PDF_PATH_PATTERN = "data/pdf/*.pdf"
     
     # Chunking
-    CHUNK_SIZE = 1000
-    CHUNK_OVERLAP = 200
+    CHUNK_SIZE_S = 300
+    CHUNK_OVERLAP_S = 50
+    CHUNK_SIZE_L = 800
+    CHUNK_OVERLAP_L = 140
     
     # Retrieval
     TOP_K = 5
     
     # Logging
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+    
+
+
