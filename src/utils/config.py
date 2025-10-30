@@ -29,7 +29,11 @@ class Config:
 
     # Logs
     LOGS_DIR = BASE_DIR / "logs"
-    
+
+    # Database
+    DB_DIR = BASE_DIR / "database"
+    DB_PATH = str(DB_DIR / "chat.db")
+
     # Vector DB
     PERSIST_DIR = "data/chroma_store"
     COLLECTION_NAME = "finance_terms"
@@ -47,6 +51,20 @@ class Config:
     
     # Logging
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-    
+
+    # LLM Models
+    LLM_MODEL = "solar-pro2"  # Financial Analyst와 Report Generator가 사용할 기본 모델
+    LLM_TEMPERATURE = 0  # 기본 temperature (0 = 결정적)
+
+    # Quality Evaluator
+    QUALITY_THRESHOLD = 2  # 품질 평가 통과 최저 점수 (1-5점 중)
+
+    # Retriever
+    RETRIEVAL_THRESHOLD = 0.3  # 검색 결과 최소 유사도 점수
+    DEFAULT_RETRIEVAL_TOP_K = 3  # 기본 검색 결과 개수
+
+    # Response Messages
+    NOT_FINANCE_RESPONSE = "저는 경제, 금융관련 정보를 통해 전문적으로 사용자의 요청을 도와드리는 AI입니다!\n주식, 환율, 기업 분석 등 금융 관련 질문을 해주시면 답변 도와 드릴게요 😄"
+
 
 
