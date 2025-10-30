@@ -83,8 +83,17 @@ def search_stocks(query: str, max_results: int = 10) -> str:
         검색된 주식 티커와 회사명 리스트 (포맷팅된 문자열)
     """
     try:
+        # JSON 문자열로 전달된 경우 파싱
+        if isinstance(query, str) and query.strip().startswith('{'):
+            try:
+                parsed = json.loads(query)
+                query = parsed.get('query', query)
+                max_results = parsed.get('max_results', max_results)
+            except:
+                pass  # JSON이 아니면 그대로 사용
+
         original_query = query
-        
+
         # 한글이 포함된 경우 영어로 번역
         if is_korean(query):
             query = translate_to_english(query)
@@ -135,16 +144,24 @@ def search_stocks(query: str, max_results: int = 10) -> str:
 def get_stock_info(ticker: str) -> Dict[str, Any]:
     """주식의 기본 정보를 조회합니다.
     현재가, 시가총액, PER, 배당수익률, 52주 최고/최저가 등을 제공합니다.
-    
+
     Args:
         ticker: 주식 티커 심볼 (예: "AAPL", "TSLA", "005930.KS")
-    
+
     Returns:
         주식 정보 (dict)
     """
     try:
+        # JSON 문자열로 전달된 경우 파싱
+        if isinstance(ticker, str) and ticker.strip().startswith('{'):
+            try:
+                parsed = json.loads(ticker)
+                ticker = parsed.get('ticker', ticker)
+            except:
+                pass  # JSON이 아니면 그대로 사용
+
         logger.info(f"주식 정보 조회 시작 - ticker: {ticker}")
-        
+
         stock = yf.Ticker(ticker)
         info = stock.info
         
@@ -192,6 +209,14 @@ def web_search(query: str) -> str:
         검색 결과 요약 및 저장 경로 (문자열)
     """
     try:
+        # JSON 문자열로 전달된 경우 파싱
+        if isinstance(query, str) and query.strip().startswith('{'):
+            try:
+                parsed = json.loads(query)
+                query = parsed.get('query', query)
+            except:
+                pass  # JSON이 아니면 그대로 사용
+
         # Tavily 클라이언트 초기화
         client = TavilyClient(api_key=Config.TAVILY_API_KEY)
     
@@ -254,7 +279,7 @@ def get_historical_prices(
 ) -> str:
     """과거 주가 데이터를 조회합니다.
     차트 생성이나 추세 분석에 필요한 OHLCV 데이터를 제공합니다.
-    
+
     Args:
         ticker: 주식 티커 심볼
         period: 기간 ("1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max")
@@ -267,8 +292,18 @@ def get_historical_prices(
         >>> get_historical_prices("AAPL", period="1mo", interval="1d")
     """
     try:
+        # JSON 문자열로 전달된 경우 파싱
+        if isinstance(ticker, str) and ticker.strip().startswith('{'):
+            try:
+                parsed = json.loads(ticker)
+                ticker = parsed.get('ticker', ticker)
+                period = parsed.get('period', period)
+                interval = parsed.get('interval', interval)
+            except:
+                pass  # JSON이 아니면 그대로 사용
+
         logger.info(f"과거 가격 조회 시작 - ticker: {ticker}, period: {period}, interval: {interval}")
-        
+
         stock = yf.Ticker(ticker)
         hist = stock.history(period=period, interval=interval)
         
@@ -304,8 +339,16 @@ def get_analyst_recommendations(ticker: str) -> str:
         >>> get_analyst_recommendations("AAPL")
     """
     try:
+        # JSON 문자열로 전달된 경우 파싱
+        if isinstance(ticker, str) and ticker.strip().startswith('{'):
+            try:
+                parsed = json.loads(ticker)
+                ticker = parsed.get('ticker', ticker)
+            except:
+                pass  # JSON이 아니면 그대로 사용
+
         logger.info(f"애널리스트 추천 조회 시작 - ticker: {ticker}")
-        
+
         stock = yf.Ticker(ticker)
         info = stock.info
         
