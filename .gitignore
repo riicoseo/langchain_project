@@ -305,7 +305,6 @@ plan/
 logs/*
 charts/*
 reports/*
-test/
 
 # other files
 uv.lock
