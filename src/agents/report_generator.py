@@ -14,6 +14,7 @@ from langchain.agents import AgentExecutor, create_react_agent
 from src.agents.tools.report_tools import report_tools
 from src.model.llm import get_llm_manager
 from src.utils.logger import get_logger
+from src.utils.config import Config
 
 logger = get_logger(__name__)
 
@@ -34,14 +35,16 @@ def _get_current_analysis_data() -> str:
 
 
 class ReportGenerator:
-    def __init__(self, model_name: str = "solar-mini", temperature: float = 0.3):
+    def __init__(self, model_name: str = None, temperature: float = 0.0):
         """
         Report Generator 에이전트를 초기화합니다.
 
         Args:
-            model_name: 사용할 모델명 (default: solar-mini)
-            temperature: LLM 온도 (0.3 = 약간 창의적)
+            model_name: 사용할 모델명 (default: Config.LLM_MODEL)
+            temperature: LLM 온도 (0.0 = 결정적)
         """
+        if model_name is None:
+            model_name = Config.LLM_MODEL
         logger.info(f"Report Generator 초기화 - model: {model_name}, temp: {temperature}")
 
         # LLM Manager에서 모델 가져오기 (stop sequence 포함)
@@ -114,7 +117,7 @@ Check for spaces, markdown, or typos!"""
             agent=agent,
             tools=self.tools,
             verbose=True,
-            max_iterations=15,
+            max_iterations=10,  # 차트 2개 + 저장 + 오류 여유 = 10
             early_stopping_method="force",  # generate → force로 변경
             handle_parsing_errors=handle_parsing_error,
             return_intermediate_steps=True
@@ -205,7 +208,7 @@ Check for spaces, markdown, or typos!"""
                 agent=temp_agent,
                 tools=available_tools,
                 verbose=True,
-                max_iterations=15,
+                max_iterations=10,  # 차트 2개 + 저장 + 오류 여유 = 10
                 early_stopping_method="force",
                 handle_parsing_errors=self.agent_executor.handle_parsing_errors,
                 return_intermediate_steps=True

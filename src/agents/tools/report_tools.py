@@ -108,10 +108,10 @@ def draw_stock_chart(output_path: str = "charts/stock_chart.png") -> str:
                         f'${price:.2f}',
                         ha='center', va='bottom', fontweight='bold', fontsize=10)
 
-            # 현재가 위치 표시 (퍼센트)
+            # 현재가 위치 표시 (퍼센트) - 차트 하단으로 이동
             if high_52w > low_52w:
                 position_pct = (current_price - low_52w) / (high_52w - low_52w) * 100
-                ax1.text(0.5, 0.95, f'Position: {position_pct:.1f}% of 52W range',
+                ax1.text(0.5, -0.15, f'Position: {position_pct:.1f}% of 52W range',
                         transform=ax1.transAxes, ha='center', va='top',
                         fontsize=10, bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.8))
 
@@ -131,9 +131,7 @@ def draw_stock_chart(output_path: str = "charts/stock_chart.png") -> str:
             # P/E Ratio 포맷팅
             pe_ratio_str = f"{pe_ratio:.2f}" if pe_ratio > 0 else "N/A"
 
-            metrics_text = f"""[Key Metrics]
-
-Ticker: {ticker}
+            metrics_text = f"""Ticker: {ticker}
 Company: {company_name}
 
 Current Price: ${current_price:.2f}
