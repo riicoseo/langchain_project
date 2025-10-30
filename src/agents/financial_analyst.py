@@ -16,18 +16,21 @@ from langchain.agents import AgentExecutor, create_react_agent
 from src.agents.tools.financial_tools import financial_tools
 from src.model.llm import get_llm_manager
 from src.utils.logger import get_logger
+from src.utils.config import Config
 
 logger = get_logger(__name__)
 
 class FinancialAnalyst:
-    def __init__(self, model_name: str = "solar-pro", temperature: float = 0):
+    def __init__(self, model_name: str = None, temperature: float = 0):
         """
         Financial Analyst 에이전트를 초기화합니다.
 
         Args:
-            model_name: 사용할 모델명 (default: solar-pro)
+            model_name: 사용할 모델명 (default: Config.LLM_MODEL)
             temperature: LLM 온도 (0 = 결정적, 1 = 창의적)
         """
+        if model_name is None:
+            model_name = Config.LLM_MODEL
         logger.info(f"Financial Analyst 초기화 - model: {model_name}, temp: {temperature}")
 
         # LLM Manager에서 모델 가져오기
