@@ -8,7 +8,7 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 def load_model():
     load_dotenv()
     print("model loaded ...")
-    llm = ChatUpstage(model="solar-pro2")
+    llm = ChatUpstage(model="solar-pro2", streaming = True)
     print("model load complete")
     return llm
 
@@ -48,9 +48,15 @@ if prompt := st.chat_input("메세지를 입력하세요."):
 
     # 2) 멀티턴: 과거 대화 + 이번 입력을 함께 LLM에 전달
     messages = build_messages_with_history(prompt)
-    response = llm.invoke(messages)  # ← 핵심: 메시지 배열을 전달
+    # response = llm.invoke(messages)  # ← 핵심: 메시지 배열을 전달
 
     # 3) 출력 + 히스토리 저장
     with st.chat_message("ai"):
-        st.markdown(response.content)
-    st.session_state.chat_history.append({"role": "ai", "message": response.content})
+        message_placeholder = st.empty()
+        full_response = ""
+        with st.spinner("메세지 입력 중입니다."):
+            # response = st.session_state.chat_session.send_message(prompt, stream = True)
+            for chunk in llm.stream(messages):
+                full_response += chunk.content
+                message_placeholder.markdown(full_response)
+    st.session_state.chat_history.append({"role": "ai", "message": full_response})
