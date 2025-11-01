@@ -30,7 +30,7 @@ def request_analysis(state, llm=None, chat_history: Optional[List[Dict]] = None)
         chat_history: 이전 대화 기록 (선택사항, 컨텍스트 기반 분석에 사용)
 
     Returns:
-        dict: label과 generate 필드를 포함한 딕셔너리
+        dict: label과 return_msg 필드를 포함한 딕셔너리
     """
     logger.info("=" * 10 + " Request Analysis THINKING START! " + "=" * 10)
     question = state['question']
@@ -64,7 +64,7 @@ def request_analysis(state, llm=None, chat_history: Optional[List[Dict]] = None)
     if result.label == "not_finance":
         logger.info("비금융 질문으로 분류됨")
         return {
-            'generate': Config.NOT_FINANCE_RESPONSE,
+            'return_msg': Config.NOT_FINANCE_RESPONSE,
             'label': "not_finance"
         }
 
@@ -91,7 +91,7 @@ def rewrite_query(
         딕셔너리:
         - rewritten_query: 재작성된 쿼리 (str)
         - needs_user_input: 유저에게 추가 정보 필요 여부 (bool)
-        - user_question: 유저에게 할 질문 (str, needs_user_input이 True일 때)
+        - request_for_detail_msg: 유저에게 더 구체적인 질문을 요청하는 메세지 (str, needs_user_input이 True일 때)
     """
     logger.info("=" * 10 + " Query Rewrite THINKING START! " + "=" * 10)
     logger.info(f"원본 질문: {original_query}")
@@ -112,7 +112,7 @@ def rewrite_query(
         return {
             "rewritten_query": original_query,
             "needs_user_input": True,
-            "user_question": "질문을 좀 더 구체적으로 말씀해 주시겠어요? 어떤 정보를 원하시나요?"
+            "request_for_detail_msg": "질문을 좀 더 구체적으로 말씀해 주시겠어요? 어떤 정보를 원하시나요?"
         }
 
     # 기본적으로는 원본 쿼리를 그대로 반환하고, 유저 입력 불필요
@@ -121,7 +121,7 @@ def rewrite_query(
     return {
         "rewritten_query": original_query,
         "needs_user_input": False,
-        "user_question": None
+        "request_for_detail_msg": None
     }
 
 
@@ -142,6 +142,6 @@ if __name__ == "__main__":
     example3 = request_analysis(input3)
 
     # request_analysis 실험 결과 출력
-    print(f"Question 1: {input1['question']} \nAnswer 1: {example1.get('generate', 'finance')}")
-    print(f"Question 2: {input2['question']} \nAnswer 2: {example2.get('generate', 'finance')}")
-    print(f"Question 3: {input3['question']} \nAnswer 3: {example3.get('generate', 'finance')}")
+    print(f"Question 1: {input1['question']} \nAnswer 1: {example1.get('return_msg', 'finance')}")
+    print(f"Question 2: {input2['question']} \nAnswer 2: {example2.get('return_msg', 'finance')}")
+    print(f"Question 3: {input3['question']} \nAnswer 3: {example3.get('return_msg', 'finance')}")
