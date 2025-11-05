@@ -13,6 +13,7 @@ Financial Analyst Agent
 from typing import Dict, Any, Optional, List
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.exceptions import OutputParserException
 
 from src.agents.tools.financial_tools import financial_tools
 from src.model.llm import get_llm_manager
@@ -51,9 +52,9 @@ class FinancialAnalyst:
         base_prompt = llm_manager.get_prompt("financial_analyst")
 
         prompt = ChatPromptTemplate.from_messages([
-        ("system", base_prompt.template),
-        MessagesPlaceholder('messages'),
-        ("human", "User Query: {input}"),
+             ("system", base_prompt.template),
+            ("system", "{agent_scratchpad}"),     # 문자열 슬롯로 변경
+            ("human", "User Query: {input}")
         ])
 
 
@@ -131,23 +132,29 @@ Check for spaces, markdown, or typos!"""
             logger.info(f"분석 시작 - query: {query}")
             
             # 에이전트 실행
-            result = self.agent_executor.invoke({"input": query, "messages": messages})
+            result = self.agent_executor.invoke({"input": query})
             
             # 결과 추출
             output = result.get("output", {})
+            
+            # 마크다운 보고서 감지
+            if output.strip().startswith("#") or "## " in output[:100]:
+                logger.error("❌ 모델이 마크다운 보고서를 출력했습니다!")
+                logger.error(f"출력 샘플: {output[:200]}")
+                
             
             # JSON 파싱 시도
             import json
             import re
             
             if isinstance(output, str):
-                logger.debug(f"원본 출력 타입: str, 길이: {len(output)}")
+                logger.info(f"원본 출력 타입: str, 길이: {len(output)}")
                 
                 # 1. 코드 블록 제거 (```json ... ```)
                 json_match = re.search(r'```json\s*(\{.*?\})\s*```', output, re.DOTALL)
                 if json_match:
                     output = json_match.group(1)
-                    logger.debug("코드 블록에서 JSON 추출 성공")
+                    logger.info("코드 블록에서 JSON 추출 성공")
                 
                 # 2. Final Answer: 이후의 JSON만 추출
                 elif 'Final Answer:' in output:
@@ -173,7 +180,7 @@ Check for spaces, markdown, or typos!"""
                             
                             if end_idx > start_idx:
                                 output = json_part[start_idx:end_idx]
-                                logger.debug(f"Final Answer에서 JSON 추출 성공 (길이: {len(output)})")
+                                logger.info(f"Final Answer에서 JSON 추출 성공 (길이: {len(output)})")
                 
                 # 3. 일반 JSON 추출 (위 방법들 실패 시)
                 else:
@@ -192,16 +199,16 @@ Check for spaces, markdown, or typos!"""
                         
                         if end_idx > start:
                             output = output[start:end_idx]
-                            logger.debug(f"일반 JSON 추출 (길이: {len(output)})")
+                            logger.info(f"일반 JSON 추출 (길이: {len(output)})")
                 
                 # 4. JSON 파싱
                 try:
                     output = json.loads(output)
-                    logger.debug(f"JSON 파싱 성공 - analysis_type: {output.get('analysis_type', 'N/A')}")
+                    logger.info(f"JSON 파싱 성공 - analysis_type: {output.get('analysis_type', 'N/A')}")
                 
                 except json.JSONDecodeError as e:
                     logger.warning(f"JSON 파싱 실패: {str(e)}")
-                    logger.debug(f"파싱 시도한 문자열 (처음 300자): {output[:300]}")
+                    logger.info(f"파싱 시도한 문자열 (처음 1000자): {output[:1000]}")
                     
                     # JSON이 아니면 기본 구조로 래핑
                     output = {
@@ -215,8 +222,31 @@ Check for spaces, markdown, or typos!"""
                     }
             
             logger.info(f"분석 완료 - type: {output.get('analysis_type', 'N/A')}")
+            logger.info(f"분석 완료 - analysis 데이터 : {output.get('analysis', 'N/A')}")
             return output
         
+        except OutputParserException as e:
+            error_message = str(e)
+            logger.warning(f"[PARSING ERROR] {error_message[:200]}")
+            
+            # 디버깅: 모델의 실제 출력 확인
+            if "Could not parse LLM output:" in error_message:
+                # 마크다운 보고서를 출력한 경우
+                if error_message.startswith("`#") or "##" in error_message[:100]:
+                    logger.error("XXXXXXXXXXXXXXXXXXXXXXXXXX 모델이 JSON 대신 마크다운 보고서를 출력했습니다!")
+                    logger.error(f"출력 샘플: {error_message[:300]}")
+                    
+                    return {
+                        "error": str(e),
+                        "analysis_type": "error",
+                        "ticker": "ERROR",
+                        "company_name": "Error",
+                        "current_price": 0,
+                        "analysis": f"분석 중 오류가 발생했습니다: {str(e)}",
+                        "metrics": {},
+                        "period": "3mo"
+                    }
+            
         except Exception as e:
             logger.error(f"분석 실패 - query: {query}, error: {str(e)}")
             import traceback
