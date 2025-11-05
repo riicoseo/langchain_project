@@ -68,9 +68,9 @@ class ReportGenerator:
         llm_manager = get_llm_manager()
         base_prompt = llm_manager.get_prompt("report_generator")
         prompt = ChatPromptTemplate.from_messages([
-        ("system", base_prompt.template),
-        MessagesPlaceholder('messages'),
-        ("human", "User Query: {input}"),
+             ("system", base_prompt.template),
+            ("system", "{agent_scratchpad}"),     # 문자열 슬롯로 변경
+            ("human", "User Query: {input}")
         ])
         
         agent = create_react_agent(
@@ -208,10 +208,10 @@ Check for spaces, markdown, or typos!"""
             base_prompt = llm_manager.get_prompt("report_generator")
 
             prompt = ChatPromptTemplate.from_messages([
-            ("system", base_prompt.template),
-            MessagesPlaceholder('messages'),
-            ("human", "User Query: {input}"),
-            ])
+             ("system", base_prompt.template),
+            ("system", "{agent_scratchpad}"),     # 문자열 슬롯로 변경
+            ("human", "User Query: {input}")
+        ])
 
             temp_agent = create_react_agent(
                 llm=self.llm,

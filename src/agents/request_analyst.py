@@ -62,14 +62,13 @@ def request_analysis(state, llm=None, chat_history: Optional[List[Dict]] = None)
     llm_manager = get_llm_manager()
     base_prompt = llm_manager.get_prompt("request_analyst")
     prompt = ChatPromptTemplate.from_messages([
-        ("system", base_prompt.template),
-        MessagesPlaceholder('messages'),
-        ("human", "사용자 질문:\n{input}"),
-    ])
+             ("system", base_prompt.template),
+            ("human", "User Query: {input}")
+        ])
 
     # 체인 생성 및 실행
     chain = prompt | llm.with_structured_output(FinanceGate)
-    result = chain.invoke({"input": question, 'messages' : messages})
+    result = chain.invoke({"input": question})
 
     logger.info(f"Question status: {result.label}")
 
