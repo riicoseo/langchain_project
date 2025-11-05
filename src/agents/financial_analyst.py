@@ -12,13 +12,14 @@ Financial Analyst Agent
 
 from typing import Dict, Any, Optional, List
 from langchain.agents import AgentExecutor, create_react_agent
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.exceptions import OutputParserException
 
 from src.agents.tools.financial_tools import financial_tools
 from src.model.llm import get_llm_manager
 from src.utils.logger import get_logger
 from src.utils.config import Config
+from src.utils.chat_context import build_conversation_context
 
 logger = get_logger(__name__)
 
@@ -52,8 +53,9 @@ class FinancialAnalyst:
         base_prompt = llm_manager.get_prompt("financial_analyst")
 
         prompt = ChatPromptTemplate.from_messages([
-             ("system", base_prompt.template),
-            ("system", "{agent_scratchpad}"),     # 문자열 슬롯로 변경
+            ("system", base_prompt.template),
+            ("system", "{conversation_context}"),
+            ("system", "{agent_scratchpad}"),  # 문자열 슬롯로 변경
             ("human", "User Query: {input}")
         ])
 
@@ -130,9 +132,16 @@ Check for spaces, markdown, or typos!"""
             messages = []
         try:
             logger.info(f"분석 시작 - query: {query}")
+
+            conversation_context = build_conversation_context(messages)
+            if not conversation_context:
+                conversation_context = "Recent conversation context: None"
             
             # 에이전트 실행
-            result = self.agent_executor.invoke({"input": query})
+            result = self.agent_executor.invoke({
+                "input": query,
+                "conversation_context": conversation_context
+            })
             
             # 결과 추출
             output = result.get("output", {})

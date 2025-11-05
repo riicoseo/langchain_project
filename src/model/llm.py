@@ -322,8 +322,8 @@ REMEMBER:
 
 Analysis Data: {analysis_data}
 
-{agent_scratchpad}""",
-            input_variables=["analysis_data", "tools", "tool_names", "agent_scratchpad"]
+""",
+            input_variables=["analysis_data", "tools", "tool_names"]
         )
 
 
